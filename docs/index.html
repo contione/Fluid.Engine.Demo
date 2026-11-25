@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fluid.Engine 字段路径、Provider 路由与批量渲染示例">
+  <title>Fluid.Engine Demo | 观测站渲染示例</title>
+  <link rel="stylesheet" href="./site.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Fluid.Engine Demo 首页">
+        <span class="brand-mark" aria-hidden="true">FE</span>
+        <span>Fluid.Engine Demo</span>
+      </a>
+      <nav class="topnav" aria-label="页面导航">
+        <a href="#model">渲染模型</a>
+        <a href="./options.html">配置手册</a>
+        <a href="#runs">运行样例</a>
+        <a href="#contract">约定</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="section-index">01 / RENDER NOTES</p>
+          <h1 id="hero-title">Fluid.Engine<br><em>观测站渲染示例</em></h1>
+          <p class="hero-lede">从 Liquid 模板到 HTML 输出，完整字段路径先被解析，注册表把路径根映射到 Provider，再按实际 Provider ID 批量取值。每一批都有独立上下文，结果可以被清楚地观测。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#runs">查看运行样例 <span aria-hidden="true">↘</span></a>
+            <a class="button button-quiet" href="./options.html">如何配置缺值与降级 →</a>
+          </div>
+          <p class="hero-meta"><span class="live-mark" aria-hidden="true"></span>静态页面 · 无网络依赖 · GitHub Pages 子路径友好</p>
+        </div>
+        <div class="hero-panel" aria-label="渲染回路摘要">
+          <div class="hero-panel-top">
+            <span>RENDER LOOP</span>
+            <span class="panel-rule"></span>
+            <span>每轮独立</span>
+          </div>
+          <div class="hero-code" aria-hidden="true">
+            <span class="code-muted">const</span> fields = service.<span class="code-green">ParsePaths</span>(template)<br>
+            <span class="code-muted">const</span> definitions = registry.<span class="code-green">GetFields</span>(fields)<br>
+            <span class="code-muted">const</span> batches = <span class="code-green">GroupBy</span>(definitions, providerId)<br>
+            <span class="code-muted">const</span> values = <span class="code-green">ResolveAsync</span>(batches)<br>
+            <span class="code-green">return</span> RenderAsync(values, policies, cache)<br>
+            <span class="code-muted">// HTML encoded output</span>
+          </div>
+          <div class="orbit-line orbit-line-one"></div>
+          <div class="orbit-line orbit-line-two"></div>
+          <div class="hero-signal"><span class="signal-dot"></span><span>字段路径 · Provider 批量 · 输出</span></div>
+        </div>
+      </section>
+
+      <section class="section flow-section" id="model" aria-labelledby="model-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">02 / EXECUTION MODEL</p>
+            <h2 id="model-title">一批渲染，五个确定步骤</h2>
+          </div>
+          <p>字段路径解析和数据准备各司其职：先得到完整路径，再由注册表按根路由并按 Provider 批量取值。</p>
+        </div>
+        <ol class="flow-diagram">
+          <li class="flow-step">
+            <span class="step-number">01</span>
+            <div class="step-glyph glyph-parse" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>RenderService</h3>
+            <p>解析模板并提取完整字段路径；语法错误在这里结束。</p>
+          </li>
+          <li class="flow-step">
+            <span class="step-number">02</span>
+            <div class="step-glyph glyph-ast" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>字段路径</h3>
+            <p>保留如 <code>station.name</code> 的完整路径，局部变量不进入 Provider 请求。</p>
+          </li>
+          <li class="flow-step flow-step-emphasis">
+            <span class="step-number">03</span>
+            <div class="step-glyph glyph-registry" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>Registry 路由</h3>
+            <p>用路径根映射 Provider；未执行分支中的字段路径仍属于本批请求。</p>
+          </li>
+          <li class="flow-step">
+            <span class="step-number">04</span>
+            <div class="step-glyph glyph-context" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>Provider 批量</h3>
+            <p>按实际 Provider ID 合并字段，每个 Provider 每批只调用一次 <code>ResolveAsync</code>。</p>
+          </li>
+          <li class="flow-step">
+            <span class="step-number">05</span>
+            <div class="step-glyph glyph-output" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>策略与缓存</h3>
+            <p>应用字段策略和模板缓存，创建独立上下文，最终 HTML 编码输出。</p>
+          </li>
+        </ol>
+        <div class="flow-note"><span class="note-mark" aria-hidden="true">↳</span><span>注意：字段路径在渲染前确定；Provider 取值按本批实际路由合并，不按模板分支重复调用。</span></div>
+      </section>
+
+      <section class="section runs-section" id="runs" aria-labelledby="runs-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">03 / LIVE RUNS</p>
+            <h2 id="runs-title">观测一次真实批量运行</h2>
+          </div>
+          <p>运行数据来自 <code>runs.js</code>。选择一个观测站样例，查看模板、完整字段路径、实际调用的 Provider ID，以及最终的 output、warning 或 error。</p>
+        </div>
+
+        <div class="run-workbench">
+          <aside class="run-sidebar" aria-label="运行样例选择">
+            <div class="sidebar-heading">
+              <span>样例选择</span>
+              <span id="run-count" class="count-label">0 CASES</span>
+            </div>
+            <div id="run-list" class="run-list"></div>
+            <p id="run-empty" class="empty-state" hidden>等待 `runs.js` 提供运行数据。</p>
+          </aside>
+
+          <article class="run-detail" aria-live="polite">
+            <header class="detail-header">
+              <div>
+                <p class="detail-kicker">SELECTED OBSERVATION</p>
+                <h3 id="run-title">尚未选择样例</h3>
+              </div>
+              <span id="run-state" class="run-state">NO DATA</span>
+            </header>
+
+            <div class="run-stats" aria-label="运行摘要">
+              <div class="run-stat"><span>字段路径</span><strong id="root-count">0</strong></div>
+              <div class="run-stat"><span>实际调用 Provider</span><strong id="provider-count">0</strong></div>
+              <div class="run-stat"><span>Warnings</span><strong id="warning-count">0</strong></div>
+              <div class="run-stat"><span>结果状态</span><strong id="result-kind">—</strong></div>
+            </div>
+
+            <section class="template-view" aria-labelledby="template-label">
+              <div class="pane-heading"><span id="template-label">template</span><span>原样展示</span></div>
+              <pre id="run-template" class="template-code">等待选择运行样例</pre>
+            </section>
+
+            <div class="detail-grid">
+              <section class="data-column" aria-labelledby="roots-label">
+                <div class="pane-heading"><span id="roots-label">字段路径 roots</span><span>Registry</span></div>
+                <ul id="root-list" class="token-list"></ul>
+              </section>
+              <section class="data-column" aria-labelledby="providers-label">
+                <div class="pane-heading"><span id="providers-label">实际调用 providers</span><span>Provider ID</span></div>
+                <ul id="provider-list" class="token-list"></ul>
+              </section>
+            </div>
+
+            <section id="run-result" class="result-view" data-state="empty" aria-labelledby="result-label">
+              <div class="pane-heading"><span id="result-label">output / warning / error</span><span id="result-hint">等待数据</span></div>
+              <p id="run-warning" class="result-warning" hidden></p>
+              <pre id="run-output" class="result-code"></pre>
+              <p id="run-error" class="result-error" hidden></p>
+            </section>
+          </article>
+        </div>
+      </section>
+
+      <section class="section contract-section" id="contract" aria-labelledby="contract-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">04 / CONTRACT</p>
+            <h2 id="contract-title">把边界留在正确的位置</h2>
+          </div>
+          <p>这些约定让模板解析、字段路由、Provider 批量取值和结果策略可以分别测试，也让一次批量渲染容易复盘。</p>
+        </div>
+        <div class="contract-list">
+          <div class="contract-row"><span class="contract-key">parse</span><strong>字段路径先行</strong><span>先解析模板并得到完整字段路径，不在语法错误时加载 Provider。</span></div>
+          <div class="contract-row"><span class="contract-key">route</span><strong>根映射 Provider</strong><span>注册表按路径根确定 Provider，成员路径保留给字段解析。</span></div>
+          <div class="contract-row"><span class="contract-key">load</span><strong>按 Provider 合并</strong><span>同一批按实际 Provider ID 合并并调用一次 <code>ResolveAsync</code>。</span></div>
+          <div class="contract-row"><span class="contract-key">policy</span><strong>策略与缓存</strong><span>按配置处理字段结果并复用模板/计划缓存，批次上下文彼此独立。</span></div>
+          <div class="contract-row"><span class="contract-key">warning</span><strong>缺值可降级</strong><span><code>sky</code> 缺值时可输出 <code>unreported</code>，同时保留 <code>MissingValue</code> warning。</span></div>
+          <div class="contract-row"><span class="contract-key">errors</span><strong>稳定错误码</strong><span>未知字段路径返回 <code>UnknownField</code>，模板解析失败返回 <code>InvalidTemplate</code>。</span></div>
+          <div class="contract-row"><span class="contract-key">render</span><strong>统一 HTML 编码</strong><span>用本批结果创建上下文，渲染后编码插值输出。</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Fluid.Engine Demo / Observatory Notes</span>
+      <span>静态资源均使用相对路径</span>
+    </footer>
+  </div>
+
+  <script src="./runs.js"></script>
+  <script src="./site.js"></script>
+</body>
+</html>
