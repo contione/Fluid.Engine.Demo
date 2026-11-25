@@ -248,7 +248,7 @@
           <aside class="json-aside">
             <div class="aside-marker">READ THIS FIRST</div>
             <h3>配置文件是入口</h3>
-            <p>当前 Demo 的启动代码加载仓库根 <code>appsettings.json</code>，绑定 <code>RenderEngineOptions</code>，再创建 <code>InMemoryFieldRegistry</code> 和 <code>TemplatePlanCache</code>。</p>
+            <p>当前 Demo 的启动代码加载仓库根 <code>appsettings.json</code>，读取 <code>RenderEngineOptions</code>，再创建 <code>InMemoryFieldRegistry</code> 和 <code>TemplatePlanCache</code>。</p>
             <p>新增字段后，必须让对应 <code>ProviderId</code> 已注册，并让 Provider 能按 <code>SourceField</code> 返回它。仅添加 JSON 不会凭空创建数据源。</p>
             <a class="text-link" href="./index.html#runs">用运行案例验证 →</a>
           </aside>

@@ -22,7 +22,8 @@ internal sealed class Observatory : IDisposable
     public Observatory()
     {
         var endpoint = Options.Create(new StationHttpOptions { BaseUrl = "https://observatory.invalid/" });
-        using var config = (ConfigurationRoot) new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory).AddJsonFile("appsettings.json").Build();
+        using var config = new ConfigurationManager();
+        config.SetBasePath(AppContext.BaseDirectory).AddJsonFile("appsettings.json");
         var settings = Options.Create(config.GetRequiredSection(RenderEngineOptions.SectionName).Get<RenderEngineOptions>()
             ?? throw new InvalidOperationException("Missing render engine settings."));
         IDataProvider[] providers = [new StationProvider(_http, endpoint), new StationJsonProvider(_http, endpoint)];
