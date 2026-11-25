@@ -2,6 +2,8 @@
 
 独立的 .NET 10 控制台示例。以脱敏的观测站和仪器数据，演示真实渲染链路：**Liquid 模板 → 完整字段路径 → 字段注册表 → Provider 批量取值 → 字段策略 → HTML 输出**。示例使用实际的 `RenderService`、字段定义、Provider 路由和模板缓存，运行结果可直接导出为网页快照。
 
+渲染使用 Fluid.Core 3.0.0。Provider 返回的普通字符串始终是文本；结构化 JSON 通过 `JsonNode` 交给 Fluid 读取成员和遍历数组。同一批次的同一注册字段只取值、应用降级策略一次。
+
 [渲染流程与在线案例](https://contione.github.io/Fluid.Engine.Demo/) · [RenderEngineOptions 配置手册](https://contione.github.io/Fluid.Engine.Demo/options.html)
 
 ## 运行

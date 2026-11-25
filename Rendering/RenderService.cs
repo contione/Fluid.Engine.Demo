@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Fluid.Engine.Demo.Contracts;
 using Fluid.Engine.Demo.Fields;
-using Fluid.Engine.Demo.Providers;
 
 namespace Fluid.Engine.Demo.Rendering;
 
@@ -46,9 +45,11 @@ public sealed class RenderService(
             .ToDictionary(key => key, key => fields[key], StringComparer.Ordinal);
         var values = await valueResolver.ResolveAsync(request.Context, fieldsToResolve, cancellationToken);
 
+        var evaluations = values.ToDictionary(pair => pair.Key,
+            pair => FieldPolicyEvaluator.Evaluate(fieldsToResolve[pair.Key], pair.Value), StringComparer.Ordinal);
         var results = new List<RenderResult>(templates.Count);
         foreach (var template in templates)
-            results.Add(await RenderItemAsync(template, fields, values, cancellationToken));
+            results.Add(await RenderItemAsync(template, evaluations, cancellationToken));
 
         foreach (var issue in results.SelectMany(result => result.Errors.Concat(result.Warnings)).Distinct())
             logger.LogWarning("Request {RequestId}; field outcome {Code}; provider {ProviderId}; key {FieldKey}",
@@ -64,21 +65,18 @@ public sealed class RenderService(
 
     private async ValueTask<RenderResult> RenderItemAsync(
         BoundTemplate template,
-        IReadOnlyDictionary<string, FieldDefinition> fields,
-        IReadOnlyDictionary<string, FieldValue> values,
+        IReadOnlyDictionary<string, FieldEvaluation> evaluations,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var errors = template.Errors.ToList();
         var warnings = new List<RenderIssue>();
-        var replacements = new Dictionary<string, FieldEvaluation>(StringComparer.Ordinal);
         if (template.IsValid)
         {
             foreach (var key in template.FieldKeys)
             {
-                var evaluation = FieldPolicyEvaluator.Evaluate(fields[key], values[key]);
+                var evaluation = evaluations[key];
                 if (evaluation.Error is not null) errors.Add(evaluation.Error);
-                else replacements[key] = evaluation;
                 if (evaluation.Warning is not null) warnings.Add(evaluation.Warning);
             }
         }
@@ -88,7 +86,7 @@ public sealed class RenderService(
         {
             try
             {
-                html = await templateRenderer.RenderAsync(template, replacements, cancellationToken);
+                html = await templateRenderer.RenderAsync(template, evaluations, cancellationToken);
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or ArithmeticException or FormatException or Fluid.FluidException)
             {

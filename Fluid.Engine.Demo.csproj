@@ -10,6 +10,6 @@
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.Extensions.Logging" />
-    <PackageReference Include="Fluid.Core" Version="2.40.0" />
+    <PackageReference Include="Fluid.Core" Version="3.0.0" />
   </ItemGroup>
 </Project>
