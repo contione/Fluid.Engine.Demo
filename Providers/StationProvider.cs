@@ -20,10 +20,7 @@ public sealed class StationProvider : KeyedDataProviderBase<string, StationProvi
     }
 
     [ActivatorUtilitiesConstructor]
-    public StationProvider(
-        HttpClient httpClient,
-        IOptions<StationHttpOptions> options,
-        ILogger<StationProvider> logger) : base(logger)
+    public StationProvider(HttpClient httpClient, IOptions<StationHttpOptions> options, ILogger<StationProvider> logger) : base(logger)
     {
         _apiClient = new StationApiClient(httpClient, options);
     }
@@ -102,10 +99,7 @@ public sealed class StationProvider : KeyedDataProviderBase<string, StationProvi
         if (!field.IsInferred || typedValue.Status != FieldValueStatus.ProviderError)
             return typedValue;
 
-        var readResult = JsonFieldReader.Read(
-            station.RawJson,
-            field.SourceField,
-            field.AllowStructuredValues);
+        var readResult = JsonFieldReader.Read(station.RawJson, field.SourceField, field.AllowStructuredValues);
         return readResult.Status switch
         {
             JsonFieldReadStatus.Found when readResult.StructuredValue is { } structuredValue =>

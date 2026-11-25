@@ -4,9 +4,7 @@ using Fluid.Engine.Demo.Providers;
 
 namespace Fluid.Engine.Demo.Rendering;
 
-public sealed class FieldValueResolver(
-    ProviderRegistry providerRegistry,
-    ILogger<FieldValueResolver> logger)
+public sealed class FieldValueResolver(ProviderRegistry providerRegistry, ILogger<FieldValueResolver> logger)
 {
     public async Task<IReadOnlyDictionary<string, FieldValue>> ResolveAsync(
         IReadOnlyDictionary<string, string?> context,
@@ -22,24 +20,8 @@ public sealed class FieldValueResolver(
             else eligibleFields.Add(field);
         }
 
-        await Task.WhenAll(eligibleFields.GroupBy(field => field.ProviderId, StringComparer.Ordinal)
-            .Select(async group =>
-            {
-                var requestedFields = group.ToArray();
-                try { await ResolveGroupAsync(group.Key, requestedFields, context, results, cancellationToken); }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    // Downstream exception messages/URLs may contain request identifiers.
-                    logger.LogWarning("Provider {ProviderId} failed with {ErrorType}",
-                        group.Key, exception.GetType().Name);
-                    foreach (var field in requestedFields)
-                        results[field.Key] = FieldValue.Failed();
-                }
-            }));
+        var groups = eligibleFields.GroupBy(field => field.ProviderId, StringComparer.Ordinal);
+        await Task.WhenAll(groups.Select(group => ResolveGroupAsync(group.Key, group.ToArray(), context, results, cancellationToken)));
 
         cancellationToken.ThrowIfCancellationRequested();
         return results;
@@ -52,8 +34,25 @@ public sealed class FieldValueResolver(
         IReadOnlyDictionary<string, string?> context, ConcurrentDictionary<string, FieldValue> results,
         CancellationToken cancellationToken)
     {
-        var values = await providerRegistry.Get(providerId).ResolveAsync(context, fields, cancellationToken);
-        foreach (var field in fields)
-            results[field.Key] = values.TryGetValue(field.Key, out var value) && value is not null ? value : FieldValue.Failed();
+        try
+        {
+            var values = await providerRegistry.Get(providerId).ResolveAsync(context, fields, cancellationToken);
+            foreach (var field in fields)
+            {
+                results[field.Key] = values.TryGetValue(field.Key, out var value) && value is not null ? value : FieldValue.Failed();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning("Provider {ProviderId} failed with {ErrorType}", providerId, exception.GetType().Name);
+            foreach (var field in fields)
+            {
+                results[field.Key] = FieldValue.Failed();
+            }
+        }
     }
 }

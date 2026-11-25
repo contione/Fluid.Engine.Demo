@@ -15,8 +15,10 @@ public sealed class BoundTemplate
         {
             if (item.Attributes is null) FieldKeys.Add(path);
             else if (item.Attributes.TryGetValue(path, out var key)) FieldKeys.Add(key);
-            else Errors.Add(new RenderIssue(IssueCode.InvalidTemplate,
-                "A Liquid field has no corresponding attribute dictionary entry.", path));
+            else
+            {
+                Errors.Add(new RenderIssue(IssueCode.InvalidTemplate, "A Liquid field has no corresponding attribute dictionary entry.", path));
+            }
         }
     }
 

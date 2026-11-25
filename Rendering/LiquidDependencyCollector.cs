@@ -43,8 +43,14 @@ internal sealed class LiquidDependencyCollector : AstVisitor
     protected override Statement VisitIfStatement(IfStatement statement)
     {
         Visit(statement.Condition);
-        foreach (var child in statement.Statements) Visit(child);
-        foreach (var branch in statement.ElseIfs) Visit(branch);
+        foreach (var child in statement.Statements)
+        {
+            Visit(child);
+        }
+        foreach (var branch in statement.ElseIfs)
+        {
+            Visit(branch);
+        }
         Visit(statement.Else);
         return statement;
     }
@@ -54,11 +60,14 @@ internal sealed class LiquidDependencyCollector : AstVisitor
         Visit(statement.Source);
         Visit(statement.Range);
         Visit(statement.Limit);
-        Visit(statement.Offset);
+        if (!statement.OffsetIsContinue) Visit(statement.Offset);
 
         var addedVariable = _locals.Add(statement.Identifier);
         var addedMetadata = _locals.Add("forloop");
-        foreach (var child in statement.Statements) Visit(child);
+        foreach (var child in statement.Statements)
+        {
+            Visit(child);
+        }
         if (addedVariable) _locals.Remove(statement.Identifier);
         if (addedMetadata) _locals.Remove("forloop");
         Visit(statement.Else);

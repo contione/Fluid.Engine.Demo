@@ -4,12 +4,8 @@ using Fluid.Engine.Demo.Fields;
 
 namespace Fluid.Engine.Demo.Rendering;
 
-public sealed class RenderService(
-    TemplatePlanCache planCache,
-    TemplateRenderer templateRenderer,
-    IFieldRegistry fieldRegistry,
-    FieldValueResolver valueResolver,
-    ILogger<RenderService> logger)
+public sealed class RenderService(TemplatePlanCache planCache, TemplateRenderer templateRenderer,
+    IFieldRegistry fieldRegistry, FieldValueResolver valueResolver, ILogger<RenderService> logger)
 {
     public TemplateParseResult Parse(string html)
     {
@@ -17,8 +13,7 @@ public sealed class RenderService(
         return new TemplateParseResult(plan.Placeholders, plan.Errors);
     }
 
-    public async Task<RenderResponse> RenderAsync(
-        RenderRequest request, string requestId, CancellationToken cancellationToken)
+    public async Task<RenderResponse> RenderAsync(RenderRequest request, string requestId, CancellationToken cancellationToken)
     {
         var timer = Stopwatch.StartNew();
         using var logScope = logger.BeginScope(new Dictionary<string, object> { ["RequestId"] = requestId });
@@ -35,8 +30,9 @@ public sealed class RenderService(
         foreach (var template in templates.Where(template => template.IsValid))
         {
             foreach (var key in template.FieldKeys.Where(key => !fields.ContainsKey(key)))
-                template.Errors.Add(new RenderIssue(IssueCode.UnknownField,
-                    "The field key is not registered.", key));
+            {
+                template.Errors.Add(new RenderIssue(IssueCode.UnknownField, "The field key is not registered.", key));
+            }
         }
 
         // Failed items must not trigger downstream calls.
@@ -49,11 +45,15 @@ public sealed class RenderService(
             pair => FieldPolicyEvaluator.Evaluate(fieldsToResolve[pair.Key], pair.Value), StringComparer.Ordinal);
         var results = new List<RenderResult>(templates.Count);
         foreach (var template in templates)
+        {
             results.Add(await RenderItemAsync(template, evaluations, cancellationToken));
+        }
 
         foreach (var issue in results.SelectMany(result => result.Errors.Concat(result.Warnings)).Distinct())
+        {
             logger.LogWarning("Request {RequestId}; field outcome {Code}; provider {ProviderId}; key {FieldKey}",
                 requestId, issue.Code, issue.ProviderId, issue.Key);
+        }
 
         var failedCount = results.Count(result => result.Status == ItemStatus.Failed);
         var status = failedCount == 0 ? BatchStatus.Completed : BatchStatus.Partial;
@@ -98,7 +98,6 @@ public sealed class RenderService(
         else if (warnings.Count > 0) status = ItemStatus.CompletedWithWarnings;
 
         var item = template.Item;
-        return new RenderResult(item.ItemId, item.TemplateId,
-            status, html, item.Metadata, errors, warnings);
+        return new RenderResult(item.ItemId, item.TemplateId, status, html, item.Metadata, errors, warnings);
     }
 }

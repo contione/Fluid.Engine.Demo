@@ -67,10 +67,7 @@ public sealed class StationJsonProvider : KeyedDataProviderBase<string, StationJ
             return new FieldValue(data.Status);
         }
 
-        var readResult = JsonFieldReader.Read(
-            data.Station,
-            field.SourceField,
-            field.AllowStructuredValues);
+        var readResult = JsonFieldReader.Read(data.Station, field.SourceField, field.AllowStructuredValues);
         return readResult.Status switch
         {
             JsonFieldReadStatus.Found when readResult.StructuredValue is { } structuredValue =>

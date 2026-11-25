@@ -12,7 +12,7 @@ public sealed record FieldEvaluation(
     RenderIssue? Warning = null,
     JsonElement? StructuredValue = null);
 
-public sealed class FieldPolicyEvaluator
+public static class FieldPolicyEvaluator
 {
     public static FieldEvaluation Evaluate(FieldDefinition field, FieldValue result)
     {
@@ -32,14 +32,10 @@ public sealed class FieldPolicyEvaluator
 
         var (code, action, message) = status switch
         {
-            FieldValueStatus.MissingValue => (IssueCode.MissingValue, field.OnMissingValue,
-                "The field has no usable value."),
-            FieldValueStatus.InvalidContext => (IssueCode.InvalidContext, field.OnInvalidContext,
-                "Required context is missing or invalid."),
-            FieldValueStatus.AccessDenied => (IssueCode.AccessDenied, FailureAction.Error,
-                "The data source denied access."),
-            _ => (IssueCode.ProviderError, field.OnProviderError,
-                "The data source could not resolve this field.")
+            FieldValueStatus.MissingValue => (IssueCode.MissingValue, field.OnMissingValue, "The field has no usable value."),
+            FieldValueStatus.InvalidContext => (IssueCode.InvalidContext, field.OnInvalidContext, "Required context is missing or invalid."),
+            FieldValueStatus.AccessDenied => (IssueCode.AccessDenied, FailureAction.Error, "The data source denied access."),
+            _ => (IssueCode.ProviderError, field.OnProviderError, "The data source could not resolve this field.")
         };
 
         var issue = new RenderIssue(code, message, field.Key, field.ProviderId);
