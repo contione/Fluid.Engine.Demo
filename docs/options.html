@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fluid.Engine Demo 的渲染配置手册：模板缓存、字段目录、Provider 与失败策略。">
+  <title>Fluid.Engine Demo | 配置手册</title>
+  <link rel="stylesheet" href="./site.css">
+  <link rel="stylesheet" href="./options.css">
+</head>
+<body>
+  <div class="options-shell">
+    <header class="options-topbar">
+      <a class="brand" href="./index.html" aria-label="返回 Fluid.Engine Demo 首页">
+        <span class="brand-mark" aria-hidden="true">FE</span>
+        <span>Fluid.Engine Demo</span>
+      </a>
+      <nav class="options-nav" aria-label="配置手册导航">
+        <a href="./index.html">首页</a>
+        <a href="./index.html#runs">运行案例</a>
+        <a href="#json">配置示例</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="options-hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="section-index">CONFIGURATION / FIELD CONTRACT</p>
+          <h1 id="page-title">把配置写成<br><em>可读的渲染契约</em></h1>
+          <p class="hero-lede">从模板计划缓存，到字段目录、Provider 和失败策略：本页按 Demo 当前实现说明每个选项的作用、默认值和边界。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#cache">先看缓存与字段</a>
+            <a class="button button-quiet" href="./index.html#runs">查看真实案例 <span aria-hidden="true">→</span></a>
+          </div>
+          <p class="hero-meta"><span class="live-mark" aria-hidden="true"></span>配置入口：仓库根 <code>appsettings.json</code> 的 <code>RenderEngineOptions</code> 节</p>
+        </div>
+        <div class="hero-map" aria-label="配置层级摘要">
+          <div class="map-caption"><span>OPTION MAP</span><span class="map-rule"></span><span>读配置 → 建目录 → 渲染</span></div>
+          <div class="map-tree">
+            <div class="map-node map-root"><span class="map-index">01</span><strong>RenderEngineOptions</strong><small>总入口</small></div>
+            <div class="map-branches">
+              <div class="map-node"><span class="map-index">02</span><strong>TemplateCache</strong><small>计划复用</small></div>
+              <div class="map-node map-node-active"><span class="map-index">03</span><strong>Fields / Groups</strong><small>路径与策略</small></div>
+              <div class="map-node"><span class="map-index">04</span><strong>Providers</strong><small>数据来源</small></div>
+            </div>
+          </div>
+          <div class="hero-signal"><span class="signal-dot"></span><span>静态配置 · 每轮独立上下文 · HTML 编码</span></div>
+        </div>
+      </section>
+
+      <section class="section options-section" id="orientation" aria-labelledby="orientation-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">01 / START HERE</p>
+            <h2 id="orientation-title">先分清三种配置</h2>
+          </div>
+          <p>Demo 启动时从仓库根 <code>appsettings.json</code> 读取 <code>RenderEngineOptions</code>，再用它组装字段注册表、Provider 注册表和模板计划缓存。修改 JSON 后直接执行 <code>dotnet run</code> 即可观察效果；本页示例就是同一份配置形状。</p>
+        </div>
+        <div class="overview-grid">
+          <article class="overview-item">
+            <span class="item-number">A</span>
+            <h3>TemplateCache</h3>
+            <p>缓存已经解析并编译的 Liquid 计划。它复用模板结构，不缓存某一次请求的数据。</p>
+          </article>
+          <article class="overview-item overview-item-emphasis">
+            <span class="item-number">B</span>
+            <h3>Fields / Groups</h3>
+            <p>把模板中的根或完整路径映射到 Provider，并为每个字段确定上下文要求、值形态和失败动作。</p>
+          </article>
+          <article class="overview-item">
+            <span class="item-number">C</span>
+            <h3>Provider</h3>
+            <p>按 Provider ID 批量解析已登记字段。Provider 负责把 <code>SourceField</code> 从数据源取出并返回结果。</p>
+          </article>
+        </div>
+        <div class="callout callout-note"><strong>运行顺序</strong><span><code>TryParse</code> → Fluid <code>AstVisitor</code> 收集外部根（排除循环变量和 <code>assign</code> 局部变量）→ 注册表按根加载，同一根每轮最多一次 → 新建 <code>TemplateContext</code> 并 <code>RenderAsync</code> → HTML 编码输出。它是渲染前的静态依赖分析，所以未执行的 <code>if</code> 分支中引用的根也会被加载。</span></div>
+      </section>
+
+      <section class="section options-section" id="cache" aria-labelledby="cache-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">02 / TEMPLATE PLAN CACHE</p>
+            <h2 id="cache-title">TemplateCache：只缓存计划</h2>
+          </div>
+          <p><code>TemplatePlanCache</code> 使用独立的内存缓存，以模板文本为键。首次编译后计算计划大小；超过预算的单项不会写入缓存。缓存命中不会替代本轮数据解析。</p>
+        </div>
+        <div class="table-wrap">
+          <table class="config-table">
+            <thead><tr><th>选项</th><th>默认值</th><th>约束 / 行为</th></tr></thead>
+            <tbody>
+              <tr><th><code>Enabled</code></th><td><span class="value-pill">true</span></td><td><code>true</code> 启用计划缓存；<code>false</code> 每次直接编译，不读取或写入缓存。</td></tr>
+              <tr><th><code>SizeLimitMiB</code></th><td><span class="value-pill">16</span></td><td>缓存总大小，按 MiB 转为字节预算；必须在 <code>MinSizeLimitMiB</code> 与 <code>MaxSizeLimitMiB</code>（含边界）之间。</td></tr>
+              <tr><th><code>MinSizeLimitMiB</code></th><td><span class="value-pill">1</span></td><td>允许的最小缓存预算，必须大于 <code>0</code>。</td></tr>
+              <tr><th><code>MaxSizeLimitMiB</code></th><td><span class="value-pill">1024</span></td><td>允许的最大缓存预算，必须大于或等于 <code>MinSizeLimitMiB</code>。</td></tr>
+              <tr><th><code>ExpirationMinutes</code></th><td><span class="value-pill">30</span></td><td>每个缓存项的绝对过期时间，允许 <code>1..1440</code> 分钟；不是滑动过期。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="two-notes">
+          <div class="callout"><strong>预算边界</strong><span><code>SizeLimitMiB</code> 小于最小值或大于最大值，启动构造缓存时会抛出选项验证异常。每个计划若估算大小超过总预算，也会只编译、不缓存。</span></div>
+          <div class="callout"><strong>缓存对象</strong><span>缓存的是解析后的 <code>TemplatePlan</code>，包括编译模板和占位路径；请求上下文、Provider 返回值和最终 HTML 仍按轮次处理。</span></div>
+        </div>
+      </section>
+
+      <section class="section options-section" id="fields" aria-labelledby="fields-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">03 / FIELD REGISTRY</p>
+            <h2 id="fields-title">Fields、Groups、Members</h2>
+          </div>
+          <p><code>InMemoryFieldRegistry</code> 在构造时把配置变成不可变的字段定义。顶层 <code>Fields</code> 适合单个已知字段；<code>Groups</code> 适合共享 Provider 和策略的一组路径。</p>
+        </div>
+        <div class="field-layers">
+          <article class="layer-card">
+            <div class="layer-top"><span class="layer-tag">FIELDS</span><span>完整键：<code>label</code></span></div>
+            <h3>显式顶层字段</h3>
+            <p>键必须是非空、已去除首尾空白且不超过 128 个字符的根名，不能在 <code>Fields</code> 中直接写点号路径。</p>
+            <pre><code>"label": {
+  "ProviderId": "station-http",
+  "SourceField": "label"
+}</code></pre>
+          </article>
+          <article class="layer-card layer-card-active">
+            <div class="layer-top"><span class="layer-tag">GROUPS</span><span>根：<code>station</code></span></div>
+            <h3>共享组默认值</h3>
+            <p><code>Groups</code> 为成员提供共同的 <code>ProviderId</code>、<code>RequiredContext</code>、结构化值和失败策略。</p>
+            <pre><code>"station": {
+  "ProviderId": "stationProvider",
+  "RequiredContext": ["stationId"],
+  "AllowUnlistedMembers": true
+}</code></pre>
+          </article>
+          <article class="layer-card">
+            <div class="layer-top"><span class="layer-tag">MEMBERS</span><span>完整键：<code>station.name</code></span></div>
+            <h3>成员覆盖</h3>
+            <p><code>Members</code> 显式声明成员；成员只覆盖自己指定的属性，其余属性从组继承。<code>SourceField</code> 默认是成员名。</p>
+            <pre><code>"Members": {
+  "name": { "SourceField": "stationName" }
+}</code></pre>
+          </article>
+        </div>
+        <div class="inheritance-panel">
+          <div class="inheritance-heading"><span>INHERITANCE</span><strong>组默认 → 成员覆盖 → 最终 FieldDefinition</strong></div>
+          <div class="inheritance-row">
+            <span>组</span><code>ProviderId = stationProvider</code><code>RequiredContext = [stationId]</code><code>AllowStructuredValues = true</code>
+          </div>
+          <div class="inheritance-arrow" aria-hidden="true">↓</div>
+          <div class="inheritance-row inheritance-result">
+            <span><code>station.name</code></span><code>SourceField = stationName</code><code>其余属性继续继承</code>
+          </div>
+        </div>
+        <div class="callout callout-note"><strong>AllowUnlistedMembers</strong><span>设为 <code>true</code> 时，合法的 <code>root.member</code> 请求可以从组默认定义推断出来；推断成员的 <code>SourceField</code> 就是成员部分。它只允许组根名，不允许带点号的组键。</span></div>
+      </section>
+
+      <section class="section options-section" id="policies" aria-labelledby="policies-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">04 / FIELD POLICY</p>
+            <h2 id="policies-title">值、上下文与失败动作</h2>
+          </div>
+          <p>字段先通过上下文检查，再由 Provider 返回结果，最后由 <code>FieldPolicyEvaluator</code> 按状态选择动作。动作名称统一是 <code>Error</code>、<code>Empty</code>、<code>DefaultValue</code>。</p>
+        </div>
+        <div class="policy-table-wrap">
+          <table class="config-table policy-table">
+            <thead><tr><th>状态</th><th>配置项</th><th><code>Error</code></th><th><code>Empty</code></th><th><code>DefaultValue</code></th></tr></thead>
+            <tbody>
+              <tr><th><code>MissingValue</code></th><td><code>OnMissingValue</code></td><td>该字段报错，停止本项 HTML 渲染</td><td>值为 <code>""</code>，保留 warning</td><td>使用 <code>DefaultValue</code>，保留 warning</td></tr>
+              <tr><th><code>InvalidContext</code></th><td><code>OnInvalidContext</code></td><td>必需上下文缺失或空白，报错</td><td>输出空字符串，保留 warning</td><td>使用默认值，保留 warning</td></tr>
+              <tr><th><code>ProviderError</code></th><td><code>OnProviderError</code></td><td>Provider 失败，报错</td><td>输出空字符串，保留 warning</td><td>使用默认值，保留 warning</td></tr>
+              <tr><th><code>AccessDenied</code></th><td>固定处理</td><td colspan="3">始终是错误；不会被三个可配置的动作降级。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="policy-details">
+          <article><h3>RequiredContext</h3><p>字段或组声明必须存在且非空白的上下文字段，例如 <code>["stationId"]</code>。检查失败不会调用对应 Provider，而是进入 <code>OnInvalidContext</code>。</p></article>
+          <article><h3>SourceField</h3><p>是 Provider 从数据源读取的字段名，不是模板中的 Liquid 路径。显式字段必须提供它；组成员不写时默认取成员名。</p></article>
+          <article><h3>DefaultValue</h3><p>只有选中的动作是 <code>DefaultValue</code> 时才会被使用；注册表会校验这时它不能为 <code>null</code>。它是文本回退值。</p></article>
+          <article><h3>AllowStructuredValues</h3><p>允许 Provider 返回 JSON 对象、数组、数字或布尔值供 Liquid 继续访问；关闭时 Provider 通常返回文本形式。</p></article>
+        </div>
+        <div class="callout callout-warning"><strong>两个硬错误</strong><span><code>UnknownField</code> 表示路径没有在注册表中找到，发生在 Provider 调用之前；<code>AccessDenied</code> 表示数据源拒绝访问，评估器固定返回错误。这两者都不是模板过滤器可以挽救的普通缺值。</span></div>
+      </section>
+
+      <section class="section options-section" id="empty-values" aria-labelledby="empty-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">05 / EMPTY VALUES</p>
+            <h2 id="empty-title">普通值与结构化值，判空不同</h2>
+          </div>
+          <p><code>EmptyValueMode</code> 只在 Provider 返回 <code>Found</code> 且没有结构化值时判定字符串是否可用。结构化 JSON 已经存在时，不会因为旁边的文本为空而被当成缺值。</p>
+        </div>
+        <div class="empty-grid">
+          <article class="empty-card">
+            <span class="empty-icon">TXT</span>
+            <h3>普通值</h3>
+            <p><code>NullOnly</code> 只把 <code>null</code> 判为空；<code>NullOrEmpty</code> 还把 <code>""</code> 判为空；<code>NullOrWhiteSpace</code> 连只含空白的文本也判为空。</p>
+            <div class="value-example"><span>输入</span><code>"   "</code><span>WhiteSpace</span><strong>MissingValue</strong></div>
+          </article>
+          <article class="empty-card empty-card-active">
+            <span class="empty-icon">JSON</span>
+            <h3>结构化值</h3>
+            <p>当 <code>StructuredValue</code> 存在时，判空逻辑跳过字符串模式；对象、数组、数字和布尔值可以继续作为 Liquid 数据模型使用。</p>
+            <div class="value-example"><span>输入</span><code>{ "id": "P-01" }</code><span>结构化值</span><strong>Found</strong></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section options-section" id="json" aria-labelledby="json-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">06 / WORKING CONFIG</p>
+            <h2 id="json-title">一份短配置，直接可读</h2>
+          </div>
+          <p>这是和当前 Demo 结构一致的最小示意。保存到仓库根 <code>appsettings.json</code> 的 <code>RenderEngineOptions</code> 节后，执行 <code>dotnet run</code>；Demo 会真实读取该文件，不会自动读取本页代码块。</p>
+        </div>
+        <div class="json-layout">
+          <pre class="large-code"><code>{
+  "RenderEngineOptions": {
+    "TemplateCache": {
+      "Enabled": true,
+      "SizeLimitMiB": 16,
+      "ExpirationMinutes": 30
+    },
+    "Groups": {
+      "station": {
+        "ProviderId": "stationProvider",
+        "RequiredContext": ["stationId"],
+        "AllowUnlistedMembers": true,
+        "Members": {
+          "name": { "SourceField": "stationName" }
+        }
+      }
+    },
+    "Fields": {
+      "products": {
+        "ProviderId": "station-http",
+        "SourceField": "products",
+        "AllowStructuredValues": true
+      },
+      "sky": {
+        "ProviderId": "station-http",
+        "SourceField": "sky",
+        "OnMissingValue": "DefaultValue",
+        "DefaultValue": "unreported"
+      }
+    }
+  }
+}</code></pre>
+          <aside class="json-aside">
+            <div class="aside-marker">READ THIS FIRST</div>
+            <h3>配置文件是入口</h3>
+            <p>当前 Demo 的启动代码加载仓库根 <code>appsettings.json</code>，绑定 <code>RenderEngineOptions</code>，再创建 <code>InMemoryFieldRegistry</code> 和 <code>TemplatePlanCache</code>。</p>
+            <p>新增字段后，必须让对应 <code>ProviderId</code> 已注册，并让 Provider 能按 <code>SourceField</code> 返回它。仅添加 JSON 不会凭空创建数据源。</p>
+            <a class="text-link" href="./index.html#runs">用运行案例验证 →</a>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section options-section" id="example" aria-labelledby="example-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">07 / DATA TO HTML</p>
+            <h2 id="example-title">数据、模板、输出，逐格对照</h2>
+          </div>
+          <p>下面的字段 <code>products</code> 允许结构化值。模板拿到数组后逐项渲染；不存在的 <code>id</code> 由 Liquid 的 <code>default</code> 过滤器兜底。</p>
+        </div>
+        <div class="comparison-grid">
+          <article class="comparison-card">
+            <div class="pane-heading"><span>DATA</span><span>Provider 返回</span></div>
+            <pre><code>{
+  "products": [
+    { "id": "OPT-01" },
+    { "name": "prism" }
+  ]
+}</code></pre>
+          </article>
+          <article class="comparison-card comparison-card-highlight">
+            <div class="pane-heading"><span>TEMPLATE</span><span>Liquid</span></div>
+            <pre><code>{% for product in products %}
+[{{ product.id | default: 'N/A' }}]
+{% endfor %}</code></pre>
+          </article>
+          <article class="comparison-card">
+            <div class="pane-heading"><span>OUTPUT</span><span>HTML encoded</span></div>
+            <pre><code>[OPT-01]
+[N/A]</code></pre>
+          </article>
+        </div>
+        <div class="callout callout-warning"><strong>根失败先于过滤器</strong><span>如果 <code>products</code> 所属根的 Provider 返回 <code>Error</code>，字段评估已经产生错误，渲染不会继续；所以 <code>{{ product.id | default: 'N/A' }}</code> 根本没有执行机会。<code>default</code> 只处理已经进入 Liquid 的值，不会把 Provider 错误变成数据。</span></div>
+      </section>
+
+      <section class="section options-section" id="extend" aria-labelledby="extend-title">
+        <div class="section-heading split-heading">
+          <div>
+            <p class="section-index">08 / EXTEND SAFELY</p>
+            <h2 id="extend-title">自定义字段与 Provider</h2>
+          </div>
+          <p>扩展点保持窄而明确：字段配置描述契约，Provider 实现取数。这样模板不需要知道 HTTP、JSON 或缓存细节。</p>
+        </div>
+        <div class="steps-grid">
+          <article class="step-card"><span>01</span><h3>加字段定义</h3><p>在 <code>Fields</code> 或 <code>Groups.Members</code> 增加模板键，设置 <code>ProviderId</code>、<code>SourceField</code> 和必要策略。</p></article>
+          <article class="step-card"><span>02</span><h3>实现数据源</h3><p>新增实现 <code>IDataProvider</code> 的类，提供唯一 <code>Id</code>，在 <code>ResolveAsync</code> 中按字段批量返回 <code>FieldValue</code>。</p></article>
+          <article class="step-card"><span>03</span><h3>注册 Provider</h3><p>把实现放入 <code>ProviderRegistry</code> 使用的 Provider 集合；配置中的 <code>ProviderId</code> 必须与 <code>Id</code> 精确一致。</p></article>
+          <article class="step-card"><span>04</span><h3>验证边界</h3><p>用真实模板检查缺上下文、空白值、结构化值、Provider 错误和 HTML 特殊字符的输出，再看首页的运行案例。</p></article>
+        </div>
+        <div class="signature-strip"><code>Task&lt;IReadOnlyDictionary&lt;string, FieldValue&gt;&gt; ResolveAsync(</code><span>context, fields, cancellationToken</span><code>);</code></div>
+      </section>
+    </main>
+
+    <footer class="options-footer">
+      <span>Fluid.Engine Demo / Configuration notes</span>
+      <span><a href="./index.html">返回首页</a><span aria-hidden="true"> · </span><a href="./index.html#runs">查看案例</a></span>
+    </footer>
+  </div>
+</body>
+</html>

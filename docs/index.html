@@ -158,6 +158,14 @@
         </div>
       </section>
 
+      <section class="section" id="fallbacks" aria-labelledby="fallbacks-title">
+        <div class="section-heading"><div><h2 id="fallbacks-title">缺一个值，在哪里处理？</h2></div></div>
+        <div class="contract-row"><span class="contract-key">01 / 模板</span><strong>只有一件商品缺 id</strong><span>列表已成功加载。用 <code>{{ product.id | default: 'N/A' }}</code> 决定这一行怎么显示；不会多查 Provider，也没有字段级告警。</span></div>
+        <div class="contract-row"><span class="contract-key">02 / 引擎</span><strong>多个模板共用字段规则</strong><span>用 <code>EmptyValueMode</code> 定义什么算空，再用 <code>OnMissingValue</code> 选择置空、给默认值或报错。降级成功保留告警。</span></div>
+        <div class="contract-row"><span class="contract-key">03 / 边界</span><strong>整个必需字段缺失</strong><span>配置 <code>Error</code> 时该模板项直接失败，不会进入 Fluid，写了 <code>default</code> 也不会输出。</span></div>
+        <p><a class="button button-primary" href="./options.html">查看完整配置与 JSON 示例 →</a></p>
+      </section>
+
       <section class="section contract-section" id="contract" aria-labelledby="contract-title">
         <div class="section-heading split-heading">
           <div>
